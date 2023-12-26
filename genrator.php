@@ -32,34 +32,72 @@ function storeImage($username, $imageDescription, $imageData, $db) {
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST["generate"])) {
         $imageDescription = $_POST["image_description"];
-        
-        // Call the Hugging Face API to generate an image
-        $apiUrl = "https://api*******";
-        $apiHeaders = array(
-            "Authorization: **************",
-        );
-        $requestData = array(
-            "inputs" => $imageDescription,
-        );
-        
-        $curl = curl_init($apiUrl);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $apiHeaders);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($requestData));
-        
-        $response = curl_exec($curl);
-        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        
-        if ($httpCode == 200) {
-            // Output the generated image as a base64 encoded string
-            $processedImage = base64_encode($response);
-            echo json_encode(array("image" => $processedImage));
-            // Store the image in the database
-            if (isset($_SESSION["username"])) {
-                $username = $_SESSION["username"];
-                storeImage($username, $imageDescription, $processedImage, $db);
+
+        // Try connecting to FastAPI
+        $fastApiUrl = "http://127.0.0.1:8000/generate_images/"; // Change to your FastAPI endpoint
+        $fastApiData = json_encode(array(
+            "input_prompt" => $imageDescription,
+            "batch_size" => 3,
+            "guidance_scale" => 10.0
+        ));
+
+        $fastApiCurl = curl_init($fastApiUrl);
+        curl_setopt($fastApiCurl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($fastApiCurl, CURLOPT_POST, true);
+        curl_setopt($fastApiCurl, CURLOPT_POSTFIELDS, $fastApiData);
+
+        $fastApiResponse = curl_exec($fastApiCurl);
+        $fastApiHttpCode = curl_getinfo($fastApiCurl, CURLINFO_HTTP_CODE);
+
+        curl_close($fastApiCurl);
+
+        if ($fastApiHttpCode == 200) {
+            // Output the generated image from FastAPI
+            echo $fastApiResponse;
+            exit;
+        } else {
+            // If FastAPI fails, fallback to Hugging Face API
+            $huggingFaceApiUrl = "https://api*******";
+            $huggingFaceApiHeaders = array(
+                "Authorization: **************",
+            );
+            $huggingFaceData = array(
+                "inputs" => $imageDescription,
+            );
+
+            $huggingFaceCurl = curl_init($huggingFaceApiUrl);
+            curl_setopt($huggingFaceCurl, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($huggingFaceCurl, CURLOPT_HTTPHEADER, $huggingFaceApiHeaders);
+            curl_setopt($huggingFaceCurl, CURLOPT_POST, true);
+            curl_setopt($huggingFaceCurl, CURLOPT_POSTFIELDS, json_encode($huggingFaceData));
+
+            $huggingFaceResponse = curl_exec($huggingFaceCurl);
+            $huggingFaceHttpCode = curl_getinfo($huggingFaceCurl, CURLINFO_HTTP_CODE);
+
+            curl_close($huggingFaceCurl);
+
+            if ($huggingFaceHttpCode == 200) {
+                // Output the generated image from Hugging Face API
+                echo json_encode(array("image" => base64_encode($huggingFaceResponse)));
+                // Store the image in the database
+                if (isset($_SESSION["username"])) {
+                    $username = $_SESSION["username"];
+                    storeImage($username, $imageDescription, base64_encode($huggingFaceResponse), $db);
+                }
+                exit;
+            } else {
+                // Handle errors from Hugging Face API here
+                http_response_code($huggingFaceHttpCode);
+                echo "Error from Hugging Face API";
+                exit;
             }
+        }
+    } elseif (isset($_POST["upload"])) {
+        // Handle image upload here
+        // You can add code to handle image upload and store it in the database
+    }
+}
+
             exit;
         }
         // Handle errors here
