@@ -34,9 +34,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $imageDescription = $_POST["image_description"];
         
         // Call the Hugging Face API to generate an image
-        $apiUrl = "https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4";
+        $apiUrl = "https://api*******";
         $apiHeaders = array(
-            "Authorization: Bearer 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",
+            "Authorization: **************",
         );
         $requestData = array(
             "inputs" => $imageDescription,
